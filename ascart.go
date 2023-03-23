@@ -107,7 +107,7 @@ func ascart(r io.Reader, w io.Writer, colored bool) (err error) {
 }
 
 func main() {
-	if err := ascart(os.Stdin, os.Stdout, true); err != nil {
+	if err := ascart(os.Stdin, os.Stdout, len(os.Args) <= 1); err != nil {
 		log.Fatalln(err)
 	}
 }
