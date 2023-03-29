@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"image"
 	"image/color"
 	"image/draw"
@@ -18,49 +19,65 @@ import (
 	"golang.org/x/image/math/fixed"
 )
 
-var table = func() (t []byte) {
-	T := [][]byte{
-		{' '},
-		{'`'},
-		{'\''},
-		{'-', '.', '^'},
-		{'"', ',', '_'},
-		{'~'},
-		{'!'},
-		{'(', ')', '+', '/', '<', '>', '\\', '|'},
-		{':', 'r'},
-		{';', 'v'},
-		{'=', 'i', 'x'},
-		{'?', 'T', 'Y'},
-		{'7', '*', 'J', 'L', 'c', 'j', 'l', 't'},
-		{'1', 'f', 'n', 'u', 'w'},
-		{'k', 'o', 's', 'z', '{', '}'},
-		{'$', '%', '&', 'C', 'F', 'I', '[', ']', 'm'},
-		{'0', 'K', 'V', 'X', 'h'},
-		{'4', 'a', 'e', 'p', 'q'},
-		{'2', '3', '#', 'P', 'S', 'U', 'Z', 'y'},
-		{'6', '9', 'b', 'd'},
-		{'A', 'E', 'G', 'H', 'N', 'O', 'g'},
-		{'5'},
-		{'8', 'D', 'R'},
-		{'Q'},
-		{'B', 'M', 'W'},
-		{'@'},
-	}
-	t = make([]byte, len(T))
-	for i, c := range T {
-		t[i] = c[rand.Intn(len(c))]
+var t = [][]byte{
+	{' '},
+	{'`'},
+	{'\''},
+	{'-', '.', '^'},
+	{'"', ',', '_'},
+	{'~'},
+	{'!'},
+	{'(', ')', '+', '/', '<', '>', '\\', '|'},
+	{':', 'r'},
+	{';', 'v'},
+	{'=', 'i', 'x'},
+	{'?', 'T', 'Y'},
+	{'7', '*', 'J', 'L', 'c', 'j', 'l', 't'},
+	{'1', 'f', 'n', 'u', 'w'},
+	{'k', 'o', 's', 'z', '{', '}'},
+	{'$', '%', '&', 'C', 'F', 'I', '[', ']', 'm'},
+	{'0', 'K', 'V', 'X', 'h'},
+	{'4', 'a', 'e', 'p', 'q'},
+	{'2', '3', '#', 'P', 'S', 'U', 'Z', 'y'},
+	{'6', '9', 'b', 'd'},
+	{'A', 'E', 'G', 'H', 'N', 'O', 'g'},
+	{'5'},
+	{'8', 'D', 'R'},
+	{'Q'},
+	{'B', 'M', 'W'},
+	{'@'},
+}
+
+var stable = func() (tt []byte) {
+	tt = make([]byte, len(t))
+	for i, c := range t {
+		tt[i] = c[0]
 	}
 	return
 }()
 
-var lentable = len(table)
+var rtable = func() (tt []byte) {
+	tt = make([]byte, len(t))
+	for i, c := range t {
+		tt[i] = c[rand.Intn(len(c))]
+	}
+	return
+}()
 
-func getByte(n uint16) byte {
-	return table[int(float64(n)/math.MaxUint16*float64(lentable-1))]
+var lentable = len(t)
+
+func getByte(n uint16, r bool) byte {
+	x := int(float64(n) / math.MaxUint16 * float64(lentable-1))
+	if r {
+		return rtable[x]
+	}
+	return stable[x]
 }
 
 func drawByte(dst draw.Image, c color.Color, x, y int, s byte) {
+	if s == ' ' {
+		return
+	}
 	(&font.Drawer{
 		Dst:  dst,
 		Src:  image.NewUniform(c),
@@ -69,7 +86,7 @@ func drawByte(dst draw.Image, c color.Color, x, y int, s byte) {
 	}).DrawBytes([]byte{s})
 }
 
-func ascart(r io.Reader, w io.Writer, colored bool) (err error) {
+func ascart(r io.Reader, w io.Writer, colored bool, random bool) (err error) {
 	src, _, err := image.Decode(r)
 	if err != nil {
 		return
@@ -99,15 +116,21 @@ func ascart(r io.Reader, w io.Writer, colored bool) (err error) {
 			if colored {
 				dstC = color.RGBA64{uint16(sumR / cnt), uint16(sumG / cnt), uint16(sumB / cnt), math.MaxUint16}
 			}
-			drawByte(dst, dstC, ox, oy, getByte(uint16(sumY/cnt)))
+			drawByte(dst, dstC, ox, oy, getByte(uint16(sumY/cnt), random))
 		}
 	}
 	err = png.Encode(w, dst)
 	return
 }
 
+var (
+	fColored = flag.Bool("c", false, "colored output")
+	fRandom  = flag.Bool("r", false, "random output")
+)
+
 func main() {
-	if err := ascart(os.Stdin, os.Stdout, len(os.Args) <= 1); err != nil {
+	flag.Parse()
+	if err := ascart(os.Stdin, os.Stdout, *fColored, *fRandom); err != nil {
 		log.Fatalln(err)
 	}
 }
